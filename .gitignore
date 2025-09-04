@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node modules (si usas herramientas de build)
+node_modules/
+npm-debug.log*
+
+# Archivos de debug temporales
+debug-storage.js
+DEBUG.md
+
+# Archivos de desarrollo
+*.log
+
+# VS Code
+.vscode/
+
+# Archivos temporales de Chrome
+*.crx
+*.pem

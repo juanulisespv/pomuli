@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pomuli</title>
+    <link rel="stylesheet" href="styles/sidebar.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🍅 Pomuli</h1>
+        </header>
+        
+        <section class="timer-section">
+            <div class="timer-display">
+                <span id="timer">25:00</span>
+            </div>
+            <div class="timer-controls">
+                <button id="startBtn" class="btn btn-primary">Iniciar</button>
+                <button id="pauseBtn" class="btn btn-secondary" disabled>Pausar</button>
+                <button id="resetBtn" class="btn btn-tertiary">Reiniciar</button>
+            </div>
+            <div class="timer-status">
+                <span id="status">Listo para trabajar</span>
+            </div>
+        </section>
+        
+        <section class="project-section">
+            <h3>Proyecto Actual</h3>
+            <div class="project-selector">
+                <select id="projectSelect">
+                    <option value="">Seleccionar proyecto...</option>
+                </select>
+                <input type="text" id="newProject" placeholder="Nuevo proyecto..." />
+                <button id="addProjectBtn" class="btn btn-small">Agregar</button>
+                <button id="manageProjectsBtn" class="btn btn-small btn-secondary">Gestionar</button>
+            </div>
+        </section>
+        
+        <section class="settings-section">
+            <h3>Configuración</h3>
+            <div class="settings-grid">
+                <label>Trabajo (min):</label>
+                <input type="number" id="workTime" value="25" min="1" max="60" />
+                
+                <label>Descanso (min):</label>
+                <input type="number" id="breakTime" value="5" min="1" max="30" />
+            </div>
+            
+            <div class="settings-options">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="autoStartEnabled" checked />
+                    <span class="checkmark"></span>
+                    Auto-inicio de trabajo después de pausas
+                </label>
+                <p class="settings-note">
+                    💡 Las pausas siempre se inician automáticamente después del trabajo
+                </p>
+            </div>
+        </section>
+        
+        <section class="stats-section">
+            <h3>Estadísticas</h3>
+            <div class="stats-summary">
+                <div class="stat-item">
+                    <span class="stat-label">Sesiones hoy:</span>
+                    <span id="todaySessions">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Tiempo total:</span>
+                    <span id="totalTime">0h 0m</span>
+                </div>
+            </div>
+            <div class="stats-actions">
+                <button id="viewHistoryBtn" class="btn btn-secondary">Ver Historial</button>
+                <button id="exportBtn" class="btn btn-secondary">Exportar</button>
+            </div>
+        </section>
+        
+        <!-- Modal de Historial -->
+        <div id="historyModal" class="modal hidden">
+            <div class="modal-content">
+                            <div class="modal-header">
+                <div class="header-top">
+                    <h3>Historial y Gestión</h3>
+                    <span id="closeModalBtn" class="modal-close">&times;</span>
+                </div>
+                <div class="modal-tabs">
+                    <button id="historyTab" class="modal-tab active">📊 Historial</button>
+                    <button id="projectsTab" class="modal-tab">🗂️ Proyectos</button>
+                </div>
+            </div>
+                
+                <div class="modal-body">
+                    <!-- Pestaña de Historial -->
+                    <div id="historyContent" class="tab-content active">
+                        <!-- Filtros -->
+                        <div class="history-filters">
+                            <select id="filterProject">
+                                <option value="">Todos los proyectos</option>
+                            </select>
+                            <select id="filterPeriod">
+                                <option value="all">Todo el tiempo</option>
+                                <option value="today">Hoy</option>
+                                <option value="week">Esta semana</option>
+                                <option value="month">Este mes</option>
+                            </select>
+                            <select id="filterType">
+                                <option value="all">Todos los tipos</option>
+                                <option value="work">Solo trabajo</option>
+                                <option value="break">Solo descansos</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Resumen por proyectos -->
+                        <div class="project-summary">
+                            <h4>📁 Resumen por Proyectos</h4>
+                            <div id="projectStatsContainer">
+                                <!-- Se llenará dinámicamente -->
+                            </div>
+                        </div>
+                        
+                        <!-- Lista de sesiones -->
+                        <div class="sessions-list">
+                            <h4>📝 Sesiones Recientes</h4>
+                            <div id="sessionsContainer">
+                                <!-- Se llenará dinámicamente -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Pestaña de Gestión de Proyectos -->
+                    <div id="projectsContent" class="tab-content">
+                        <div id="projectManagementContainer">
+                            <!-- Se llena dinámicamente con JavaScript -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button id="exportJsonBtn" class="btn btn-primary">📄 Exportar JSON</button>
+                    <button id="exportCsvBtn" class="btn btn-primary">📊 Exportar CSV</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="sidebar.js"></script>
+</body>
+</html>
