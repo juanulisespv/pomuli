@@ -1,22 +1,329 @@
 // Background script para manejar el temporizador y notificaciones
-class PomodoroBackground {
+// Gestor de alertas y notificaciones mejorado
+class EnhancedAlertManager {
     constructor() {
+        this.lastNotificationId = null;
+        this.alertSettings = {
+            systemNotifications: true,
+            sounds: true,
+            browserAlert: false,
+            iconFlashing: true,
+            sidebarAutoOpen: true,
+            vibration: true, // Para dispositivos compatibles
+            soundFile: 'default', // default, bell, chime, custom
+            alertIntensity: 'medium', // low, medium, high
+            flashDuration: 5000,
+            repeatNotifications: false,
+            notificationPersistence: 8000
+        };
+        this.flashInterval = null;
+        this.originalIcon = 'icons/icon48.png';
+        this.alertIcon = 'icons/icon48-alert.png'; // Necesitaremos crear este
+        this.audioContext = null;
+        this.initializeAudio();
+    }
+
+    async initializeAudio() {
+        try {
+            this.audioContext = new AudioContext();
+        } catch (error) {
+            console.warn('AudioContext no disponible:', error);
+        }
+    }
+
+    // Cargar configuraciones de alertas desde storage
+    async loadAlertSettings() {
+        try {
+            const result = await chrome.storage.local.get('alertSettings');
+            if (result.alertSettings) {
+                this.alertSettings = { ...this.alertSettings, ...result.alertSettings };
+            }
+        } catch (error) {
+            console.error('Error loading alert settings:', error);
+        }
+    }
+
+    // Guardar configuraciones de alertas
+    async saveAlertSettings() {
+        try {
+            await chrome.storage.local.set({ alertSettings: this.alertSettings });
+        } catch (error) {
+            console.error('Error saving alert settings:', error);
+        }
+    }
+
+    // Sistema principal de alertas múltiples
+    async triggerSessionAlert(type, sessionData = {}) {
+        const { duration = 0, project = '', nextType = '' } = sessionData;
+        
+        // 1. Notificación del sistema (existente mejorada)
+        if (this.alertSettings.systemNotifications) {
+            this.showEnhancedSystemNotification(type, sessionData);
+        }
+
+        // 2. Sonido personalizable
+        if (this.alertSettings.sounds) {
+            this.playNotificationSound(type);
+        }
+
+        // 3. Flash del icono en la toolbar
+        if (this.alertSettings.iconFlashing) {
+            this.startIconFlashing();
+        }
+
+        // 4. Auto-abrir sidebar con mensaje prominente
+        if (this.alertSettings.sidebarAutoOpen) {
+            this.openSidebarWithAlert(type, sessionData);
+        }
+
+        // 5. Alert nativo del navegador (opcional)
+        if (this.alertSettings.browserAlert) {
+            this.showBrowserAlert(type, sessionData);
+        }
+
+        // 6. Vibración (dispositivos compatibles)
+        if (this.alertSettings.vibration && navigator.vibrate) {
+            this.triggerVibration(type);
+        }
+
+        // 7. Repetir notificaciones si está habilitado
+        if (this.alertSettings.repeatNotifications) {
+            this.scheduleRepeatNotifications(type, sessionData);
+        }
+    }
+
+    showEnhancedSystemNotification(type, sessionData) {
+        // Prevenir notificaciones duplicadas
+        const currentTime = Date.now();
+        const notificationKey = `${type}-${Math.floor(currentTime / 5000)}`;
+        
+        if (this.lastNotificationId === notificationKey) {
+            return;
+        }
+        
+        this.lastNotificationId = notificationKey;
+        
+        let title, message, nextAction;
+        let iconUrl = type === 'work' ? 'icons/icon48.png' : 'icons/icon48.png';
+        
+        if (type === 'work') {
+            title = '🎉 ¡Sesión de trabajo completada!';
+            message = `Completaste ${sessionData.duration || 25} minutos de trabajo en "${sessionData.project || 'Proyecto'}". ¡Excelente!`;
+            nextAction = 'Pausa iniciando automáticamente...';
+        } else {
+            title = '☕ ¡Descanso terminado!';
+            message = `Tu descanso de ${sessionData.duration || 5} minutos ha terminado.`;
+            nextAction = sessionData.autoStart ? 'Trabajo iniciando automáticamente...' : 'Presiona "Iniciar" cuando estés listo';
+        }
+        
+        const notificationId = `pomodoro-enhanced-${type}-${Date.now()}`;
+        
+        chrome.notifications.create(notificationId, {
+            type: 'basic',
+            iconUrl: iconUrl,
+            title: title,
+            message: message,
+            requireInteraction: true,
+            priority: 2,
+            buttons: [
+                { title: '🍅 Abrir Pomodoro' },
+                { title: '⚙️ Configurar Alertas' },
+                { title: '📊 Ver Estadísticas' }
+            ]
+        });
+
+        // Auto-cerrar según configuración
+        setTimeout(() => {
+            chrome.notifications.clear(notificationId);
+        }, this.alertSettings.notificationPersistence);
+    }
+
+    // Reproducir sonidos personalizables
+    playNotificationSound(type) {
+        const soundMap = {
+            work: this.getWorkCompletionSound(),
+            break: this.getBreakCompletionSound()
+        };
+
+        if (this.alertSettings.soundFile === 'default') {
+            // Usar sonidos del sistema
+            this.playSystemSound(type);
+        } else {
+            // Reproducir sonido personalizado
+            this.playCustomSound(soundMap[type]);
+        }
+    }
+
+    playSystemSound(type) {
+        // Crear un tono usando Web Audio API
+        if (!this.audioContext) return;
+
+        const oscillator = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+        
+        // Frecuencias diferentes para work vs break
+        oscillator.frequency.setValueAtTime(
+            type === 'work' ? 800 : 600, 
+            this.audioContext.currentTime
+        );
+        
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime);
+        
+        // Patrón de sonido diferente según el tipo
+        if (type === 'work') {
+            // Tres tonos para trabajo completado
+            oscillator.start();
+            oscillator.stop(this.audioContext.currentTime + 0.2);
+            
+            setTimeout(() => this.playSystemSound('work-repeat'), 300);
+        } else {
+            // Dos tonos para descanso
+            oscillator.start();
+            oscillator.stop(this.audioContext.currentTime + 0.3);
+            
+            setTimeout(() => this.playSystemSound('break-repeat'), 400);
+        }
+    }
+
+    // Flash del icono de la extensión
+    startIconFlashing() {
+        if (this.flashInterval) {
+            clearInterval(this.flashInterval);
+        }
+
+        let isAlert = false;
+        this.flashInterval = setInterval(() => {
+            // Alternar entre icono normal y versión más oscura/clara
+            const iconPath = isAlert ? 
+                { 16: 'icons/icon16.png', 32: 'icons/icon32.png', 48: 'icons/icon48.png' } :
+                { 16: 'icons/icon16.png', 32: 'icons/icon32.png', 48: 'icons/icon48.png' };
+            
+            // Usar el badge para crear efecto de flash
+            if (isAlert) {
+                chrome.action.setBadgeText({ text: '!' });
+                chrome.action.setBadgeBackgroundColor({ color: '#ff0000' });
+            } else {
+                chrome.action.setBadgeText({ text: '' });
+            }
+            
+            chrome.action.setIcon({ path: iconPath });
+            isAlert = !isAlert;
+        }, 500);
+
+        // Detener después del tiempo configurado
+        setTimeout(() => {
+            clearInterval(this.flashInterval);
+            this.flashInterval = null;
+            // Restaurar icono y badge original
+            chrome.action.setIcon({
+                path: { 16: 'icons/icon16.png', 32: 'icons/icon32.png', 48: 'icons/icon48.png' }
+            });
+            chrome.action.setBadgeText({ text: '' });
+        }, this.alertSettings.flashDuration);
+    }
+
+    // Abrir sidebar con alerta prominente
+    async openSidebarWithAlert(type, sessionData) {
+        try {
+            // Enviar mensaje al sidebar para mostrar alerta prominente
+            await chrome.runtime.sendMessage({
+                action: 'showProminentAlert',
+                type: type,
+                data: sessionData
+            });
+
+            // Intentar abrir el sidebar
+            await chrome.sidePanel.open({ windowId: chrome.windows.WINDOW_ID_CURRENT });
+        } catch (error) {
+            console.warn('No se pudo abrir sidebar automáticamente:', error);
+        }
+    }
+
+    // Alert nativo del navegador
+    showBrowserAlert(type, sessionData) {
+        const message = type === 'work' ? 
+            `¡Sesión de trabajo completada! (${sessionData.duration || 25} min)` :
+            `¡Descanso terminado! Tiempo de trabajar.`;
+        
+        // Enviar mensaje al sidebar para mostrar alert()
+        chrome.runtime.sendMessage({
+            action: 'showBrowserAlert',
+            message: message
+        });
+    }
+
+    // Vibración para dispositivos compatibles
+    triggerVibration(type) {
+        if (!navigator.vibrate) return;
+
+        const pattern = type === 'work' ? 
+            [200, 100, 200, 100, 200] : // Trabajo: 3 pulsos
+            [300, 200, 300]; // Descanso: 2 pulsos
+
+        navigator.vibrate(pattern);
+    }
+
+    // Repetir notificaciones
+    scheduleRepeatNotifications(type, sessionData) {
+        // Repetir cada 30 segundos, máximo 3 veces
+        let repeatCount = 0;
+        const maxRepeats = 3;
+        
+        const repeatInterval = setInterval(() => {
+            repeatCount++;
+            if (repeatCount >= maxRepeats) {
+                clearInterval(repeatInterval);
+                return;
+            }
+            
+            // Notificación de recordatorio
+            chrome.notifications.create(`pomodoro-reminder-${Date.now()}`, {
+                type: 'basic',
+                iconUrl: 'icons/icon48.png',
+                title: '🔔 Recordatorio Pomodoro',
+                message: `No olvides ${type === 'work' ? 'tomar tu descanso' : 'continuar trabajando'}`,
+                requireInteraction: false,
+                priority: 1
+            });
+        }, 30000);
+    }
+
+    getWorkCompletionSound() {
+        return 'sounds/work-complete.mp3'; // Archivo que necesitaremos crear
+    }
+
+    getBreakCompletionSound() {
+        return 'sounds/break-complete.mp3'; // Archivo que necesitaremos crear
+    }
+
+    // Métodos para configuración de usuario
+    updateAlertSetting(setting, value) {
+        this.alertSettings[setting] = value;
+        this.saveAlertSettings();
+    }
+
+    getAlertSettings() {
+        return { ...this.alertSettings };
+    }
+}
+
+// Gestor de timer mejorado
+class TimerManager {
+    constructor(alertManager) {
+        this.alertManager = alertManager;
         this.isRunning = false;
         this.isPaused = false;
-        this.currentSession = null;
-        this.timeRemaining = 0;
-        this.startTime = 0;
+        this.timeRemaining = 25 * 60; // en segundos
+        this.startTime = null;
         this.originalDuration = 0;
-        this.countdownInterval = null;
-        this.lastProject = null; // Guardar el último proyecto usado
-        this.autoStartEnabled = true; // Configuración de inicio automático
-        this.isCompletingTimer = false; // Prevenir múltiples llamadas a handleTimerComplete
-        this.lastNotificationId = null; // Rastrear última notificación para evitar duplicados
+        this.currentSession = null;
+        this.isCompletingTimer = false;
         
         this.setupAlarmListener();
-        this.setupMessageListener();
-        this.loadTimerState();
-        this.loadSettings();
     }
     
     setupAlarmListener() {
@@ -310,17 +617,16 @@ class PomodoroBackground {
             this.isCompletingTimer = false;
             return;
         }
-        
-        // Mostrar notificación ÚNICA
-        this.showNotification(session.type);
-        
-        // Reproducir sonido
-        this.notifyUI('playSound', {});
+
+        // NUEVO: Usar el sistema de alertas mejorado
+        await this.alertManager.triggerSessionAlert(session.type, {
+            duration: session.duration,
+            project: session.project,
+            autoStart: session.type === 'work' || (session.type === 'break' && this.autoStartEnabled)
+        });
         
         // Guardar estadísticas
-        console.log('🔄 Llamando a saveSession con sesión:', session);
         await this.saveSession(session);
-        console.log('✅ saveSession completado');
         
         // Obtener configuraciones para inicio automático
         const settings = await this.getStoredSettings();
@@ -725,6 +1031,170 @@ class PomodoroBackground {
         
         // Notificar a la UI del cambio
         this.notifyUI('autoStartChanged', { enabled: enabled });
+    }
+}
+
+// Clase principal que coordina todos los componentes
+class PomodoroBackground {
+    constructor() {
+        this.alertManager = new EnhancedAlertManager();
+        this.timerManager = new TimerManager(this.alertManager);
+        this.autoStartEnabled = true;
+        this.lastProject = '';
+        
+        this.init();
+    }
+
+    async init() {
+        await this.alertManager.loadAlertSettings();
+        await this.loadSettings();
+        await this.timerManager.loadTimerState();
+        this.setupMessageHandlers();
+    }
+
+    setupMessageHandlers() {
+        chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+            try {
+                switch (message.action) {
+                    case 'startTimer':
+                        this.timerManager.startTimer(message.duration, message.type, message.project);
+                        sendResponse({ success: true });
+                        break;
+                        
+                    case 'pauseTimer':
+                        this.timerManager.pauseTimer();
+                        sendResponse({ success: true });
+                        break;
+                        
+                    case 'resumeTimer':
+                        this.timerManager.resumeTimer();
+                        sendResponse({ success: true });
+                        break;
+                        
+                    case 'resetTimer':
+                        this.timerManager.resetTimer();
+                        sendResponse({ success: true });
+                        break;
+                        
+                    case 'getTimerState':
+                        sendResponse({
+                            isRunning: this.timerManager.isRunning,
+                            isPaused: this.timerManager.isPaused,
+                            timeRemaining: this.timerManager.timeRemaining,
+                            currentSession: this.timerManager.currentSession
+                        });
+                        break;
+                        
+                    case 'setAutoStart':
+                        await this.setAutoStart(message.enabled);
+                        sendResponse({ success: true });
+                        break;
+                        
+                    case 'getSettings':
+                        sendResponse({
+                            autoStartEnabled: this.autoStartEnabled,
+                            lastProject: this.lastProject
+                        });
+                        break;
+
+                    // Nuevos handlers para alertas
+                    case 'updateAlertSettings':
+                        this.alertManager.updateAlertSetting(message.setting, message.value);
+                        sendResponse({ success: true });
+                        break;
+                        
+                    case 'getAlertSettings':
+                        sendResponse(this.alertManager.getAlertSettings());
+                        break;
+                        
+                    case 'triggerTestAlert':
+                        // Probar el sistema de alertas
+                        await this.alertManager.triggerSessionAlert(message.type, {
+                            duration: 25,
+                            project: 'Proyecto de Prueba',
+                            autoStart: true
+                        });
+                        sendResponse({ success: true });
+                        break;
+                        
+                    case 'showProminentAlert':
+                        // Esto se maneja en el sidebar
+                        break;
+                        
+                    case 'showBrowserAlert':
+                        // Mostrar alert nativo en el contexto apropiado
+                        if (chrome.tabs && chrome.tabs.query) {
+                            try {
+                                const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                                if (tabs[0]) {
+                                    await chrome.scripting.executeScript({
+                                        target: { tabId: tabs[0].id },
+                                        func: (message) => alert(message),
+                                        args: [message.message]
+                                    });
+                                }
+                            } catch (error) {
+                                console.warn('No se pudo mostrar alert nativo:', error);
+                            }
+                        }
+                        break;
+                }
+            } catch (error) {
+                console.error('Error handling message:', error);
+                sendResponse({ success: false, error: error.message });
+            }
+            return true;
+        });
+
+        // Handler para clics en notificaciones
+        chrome.notifications.onClicked.addListener((notificationId) => {
+            this.alertManager.openSidebarWithAlert('notification-click', {});
+        });
+
+        chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
+            if (buttonIndex === 0) { // Abrir Pomodoro
+                this.alertManager.openSidebarWithAlert('button-click', {});
+            } else if (buttonIndex === 1) { // Configurar Alertas
+                this.alertManager.openSidebarWithAlert('settings', {});
+            } else if (buttonIndex === 2) { // Ver Estadísticas
+                this.alertManager.openSidebarWithAlert('stats', {});
+            }
+        });
+    }
+
+    async loadSettings() {
+        try {
+            const result = await chrome.storage.local.get(['autoStartEnabled', 'lastProject']);
+            this.autoStartEnabled = result.autoStartEnabled !== undefined ? result.autoStartEnabled : true;
+            this.lastProject = result.lastProject || '';
+        } catch (error) {
+            console.error('Error loading settings:', error);
+        }
+    }
+
+    async saveSettings() {
+        try {
+            await chrome.storage.local.set({
+                autoStartEnabled: this.autoStartEnabled,
+                lastProject: this.lastProject
+            });
+        } catch (error) {
+            console.error('Error saving settings:', error);
+        }
+    }
+
+    async setAutoStart(enabled) {
+        this.autoStartEnabled = enabled;
+        await this.saveSettings();
+        
+        // Notificar a la UI del cambio
+        this.notifyUI('autoStartChanged', { enabled: enabled });
+    }
+
+    notifyUI(action, data) {
+        chrome.runtime.sendMessage({ action, ...data }).catch(() => {
+            // Ignorar errores si no hay UI escuchando
+        });
     }
 }
 

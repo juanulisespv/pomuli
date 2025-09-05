@@ -8,7 +8,9 @@
     "storage",
     "alarms",
     "notifications",
-    "sidePanel"
+    "sidePanel",
+    "activeTab",
+    "scripting"
   ],
   
   "background": {

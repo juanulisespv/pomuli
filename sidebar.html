@@ -58,6 +58,112 @@
                     💡 Las pausas siempre se inician automáticamente después del trabajo
                 </p>
             </div>
+            
+            <!-- Nueva sección de configuración de alertas -->
+            <div class="alert-settings">
+                <button id="alertSettingsBtn" class="btn btn-secondary">⚙️ Configurar Alertas</button>
+            </div>
+        </section>
+        
+        <!-- Sección expandible de configuración de alertas -->
+        <section class="alert-configuration-section hidden" id="alertConfiguration">
+            <h3>🔔 Configuración de Alertas</h3>
+            <div class="alert-grid">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="systemNotifications" checked />
+                    <span class="checkmark"></span>
+                    Notificaciones del sistema
+                </label>
+                
+                <label class="checkbox-label">
+                    <input type="checkbox" id="alertSounds" checked />
+                    <span class="checkmark"></span>
+                    Sonidos de alerta
+                </label>
+                
+                <label class="checkbox-label">
+                    <input type="checkbox" id="iconFlashing" checked />
+                    <span class="checkmark"></span>
+                    Parpadeo del icono
+                </label>
+                
+                <label class="checkbox-label">
+                    <input type="checkbox" id="sidebarAutoOpen" checked />
+                    <span class="checkmark"></span>
+                    Auto-abrir sidebar
+                </label>
+                
+                <label class="checkbox-label">
+                    <input type="checkbox" id="browserAlert" />
+                    <span class="checkmark"></span>
+                    Alerta nativa del navegador
+                </label>
+                
+                <label class="checkbox-label">
+                    <input type="checkbox" id="vibrationAlert" checked />
+                    <span class="checkmark"></span>
+                    Vibración (móviles)
+                </label>
+                
+                <label class="checkbox-label">
+                    <input type="checkbox" id="repeatNotifications" />
+                    <span class="checkmark"></span>
+                    Repetir notificaciones
+                </label>
+            </div>
+            
+            <div class="alert-intensity">
+                <label>Intensidad de alertas:</label>
+                <select id="alertIntensity">
+                    <option value="low">Baja</option>
+                    <option value="medium" selected>Media</option>
+                    <option value="high">Alta</option>
+                </select>
+            </div>
+            
+            <div class="alert-sound-settings">
+                <label>Sonido de alerta:</label>
+                <select id="soundFile">
+                    <option value="default" selected>Sistema (predeterminado)</option>
+                    <option value="bell">Campana</option>
+                    <option value="chime">Carillón</option>
+                    <option value="custom">Personalizado</option>
+                </select>
+                <button id="testSoundBtn" class="btn btn-small">🔊 Probar</button>
+            </div>
+            
+            <div class="alert-timing">
+                <label>Duración del parpadeo (ms):</label>
+                <input type="range" id="flashDuration" min="1000" max="10000" value="5000" step="1000" />
+                <span id="flashDurationValue">5s</span>
+            </div>
+            
+            <div class="alert-timing">
+                <label>Persistencia de notificación (ms):</label>
+                <input type="range" id="notificationPersistence" min="3000" max="15000" value="8000" step="1000" />
+                <span id="notificationPersistenceValue">8s</span>
+            </div>
+            
+            <div class="alert-actions">
+                <button id="testAllAlertsBtn" class="btn btn-primary">🧪 Probar Todas las Alertas</button>
+                <button id="resetAlertsBtn" class="btn btn-tertiary">🔄 Restaurar Valores</button>
+            </div>
+        </section>
+
+        <!-- Alert prominente para sesiones completadas -->
+        <div id="prominentAlert" class="prominent-alert hidden">
+            <div class="alert-content">
+                <div class="alert-icon">🎉</div>
+                <div class="alert-message">
+                    <h3 id="alertTitle">¡Sesión Completada!</h3>
+                    <p id="alertDescription">Has completado tu sesión de trabajo.</p>
+                </div>
+                <div class="alert-actions">
+                    <button id="alertDismissBtn" class="btn btn-primary">Entendido</button>
+                    <button id="alertConfigBtn" class="btn btn-secondary">Configurar</button>
+                </div>
+            </div>
+        </div>
         </section>
         
         <section class="stats-section">

@@ -99,7 +99,243 @@ class PomodoroUI {
             }
         });
         
-                // Event delegation para botones dinámicos
+        // Nuevos event listeners para alertas
+        this.setupAlertEventListeners();
+        
+        // Event delegation para botones dinámicos
+        this.setupEventDelegation();
+    }
+    
+    setupAlertEventListeners() {
+        // Elementos de la interfaz de alertas
+        this.alertSettingsBtn = document.getElementById('alertSettingsBtn');
+        this.alertConfiguration = document.getElementById('alertConfiguration');
+        
+        // Checkboxes de configuración
+        this.systemNotifications = document.getElementById('systemNotifications');
+        this.alertSounds = document.getElementById('alertSounds');
+        this.iconFlashing = document.getElementById('iconFlashing');
+        this.sidebarAutoOpen = document.getElementById('sidebarAutoOpen');
+        this.browserAlert = document.getElementById('browserAlert');
+        this.vibrationAlert = document.getElementById('vibrationAlert');
+        this.repeatNotifications = document.getElementById('repeatNotifications');
+        
+        // Selectores y sliders
+        this.alertIntensity = document.getElementById('alertIntensity');
+        this.soundFile = document.getElementById('soundFile');
+        this.flashDuration = document.getElementById('flashDuration');
+        this.flashDurationValue = document.getElementById('flashDurationValue');
+        this.notificationPersistence = document.getElementById('notificationPersistence');
+        this.notificationPersistenceValue = document.getElementById('notificationPersistenceValue');
+        
+        // Botones de acción
+        this.testSoundBtn = document.getElementById('testSoundBtn');
+        this.testAllAlertsBtn = document.getElementById('testAllAlertsBtn');
+        this.resetAlertsBtn = document.getElementById('resetAlertsBtn');
+        
+        // Alerta prominente
+        this.prominentAlert = document.getElementById('prominentAlert');
+        this.alertTitle = document.getElementById('alertTitle');
+        this.alertDescription = document.getElementById('alertDescription');
+        this.alertDismissBtn = document.getElementById('alertDismissBtn');
+        this.alertConfigBtn = document.getElementById('alertConfigBtn');
+        
+        // Event listeners
+        this.alertSettingsBtn.addEventListener('click', () => this.toggleAlertConfiguration());
+        
+        // Checkboxes
+        this.systemNotifications.addEventListener('change', () => this.updateAlertSetting('systemNotifications', this.systemNotifications.checked));
+        this.alertSounds.addEventListener('change', () => this.updateAlertSetting('sounds', this.alertSounds.checked));
+        this.iconFlashing.addEventListener('change', () => this.updateAlertSetting('iconFlashing', this.iconFlashing.checked));
+        this.sidebarAutoOpen.addEventListener('change', () => this.updateAlertSetting('sidebarAutoOpen', this.sidebarAutoOpen.checked));
+        this.browserAlert.addEventListener('change', () => this.updateAlertSetting('browserAlert', this.browserAlert.checked));
+        this.vibrationAlert.addEventListener('change', () => this.updateAlertSetting('vibration', this.vibrationAlert.checked));
+        this.repeatNotifications.addEventListener('change', () => this.updateAlertSetting('repeatNotifications', this.repeatNotifications.checked));
+        
+        // Selectores
+        this.alertIntensity.addEventListener('change', () => this.updateAlertSetting('alertIntensity', this.alertIntensity.value));
+        this.soundFile.addEventListener('change', () => this.updateAlertSetting('soundFile', this.soundFile.value));
+        
+        // Sliders
+        this.flashDuration.addEventListener('input', () => {
+            this.flashDurationValue.textContent = `${this.flashDuration.value / 1000}s`;
+            this.updateAlertSetting('flashDuration', parseInt(this.flashDuration.value));
+        });
+        
+        this.notificationPersistence.addEventListener('input', () => {
+            this.notificationPersistenceValue.textContent = `${this.notificationPersistence.value / 1000}s`;
+            this.updateAlertSetting('notificationPersistence', parseInt(this.notificationPersistence.value));
+        });
+        
+        // Botones de acción
+        this.testSoundBtn.addEventListener('click', () => this.testSound());
+        this.testAllAlertsBtn.addEventListener('click', () => this.testAllAlerts());
+        this.resetAlertsBtn.addEventListener('click', () => this.resetAlertSettings());
+        
+        // Alerta prominente
+        this.alertDismissBtn.addEventListener('click', () => this.dismissProminentAlert());
+        this.alertConfigBtn.addEventListener('click', () => {
+            this.dismissProminentAlert();
+            this.toggleAlertConfiguration(true);
+        });
+        
+        // Cargar configuración inicial
+        this.loadAlertSettings();
+    }
+    
+    async loadAlertSettings() {
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'getAlertSettings' });
+            if (response) {
+                this.applyAlertSettings(response);
+            }
+        } catch (error) {
+            console.error('Error loading alert settings:', error);
+        }
+    }
+    
+    applyAlertSettings(settings) {
+        this.systemNotifications.checked = settings.systemNotifications;
+        this.alertSounds.checked = settings.sounds;
+        this.iconFlashing.checked = settings.iconFlashing;
+        this.sidebarAutoOpen.checked = settings.sidebarAutoOpen;
+        this.browserAlert.checked = settings.browserAlert;
+        this.vibrationAlert.checked = settings.vibration;
+        this.repeatNotifications.checked = settings.repeatNotifications;
+        
+        this.alertIntensity.value = settings.alertIntensity;
+        this.soundFile.value = settings.soundFile;
+        this.flashDuration.value = settings.flashDuration;
+        this.notificationPersistence.value = settings.notificationPersistence;
+        
+        this.flashDurationValue.textContent = `${settings.flashDuration / 1000}s`;
+        this.notificationPersistenceValue.textContent = `${settings.notificationPersistence / 1000}s`;
+    }
+    
+    async updateAlertSetting(setting, value) {
+        try {
+            await chrome.runtime.sendMessage({
+                action: 'updateAlertSettings',
+                setting: setting,
+                value: value
+            });
+        } catch (error) {
+            console.error('Error updating alert setting:', error);
+        }
+    }
+    
+    toggleAlertConfiguration(forceOpen = false) {
+        if (forceOpen || this.alertConfiguration.classList.contains('hidden')) {
+            this.alertConfiguration.classList.remove('hidden');
+            this.alertSettingsBtn.textContent = '🔽 Ocultar Configuración';
+        } else {
+            this.alertConfiguration.classList.add('hidden');
+            this.alertSettingsBtn.textContent = '⚙️ Configurar Alertas';
+        }
+    }
+    
+    async testSound() {
+        this.testSoundBtn.classList.add('test-alert-active');
+        
+        // Simular sonido
+        try {
+            const audioContext = new AudioContext();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.3);
+        } catch (error) {
+            console.warn('No se pudo reproducir sonido de prueba:', error);
+        }
+        
+        setTimeout(() => {
+            this.testSoundBtn.classList.remove('test-alert-active');
+        }, 500);
+    }
+    
+    async testAllAlerts() {
+        this.testAllAlertsBtn.classList.add('test-alert-active');
+        
+        // Mostrar alerta prominente de prueba
+        this.showProminentAlert('test', {
+            duration: 25,
+            project: 'Proyecto de Prueba'
+        });
+        
+        // Enviar mensaje al background para probar otras alertas
+        try {
+            await chrome.runtime.sendMessage({
+                action: 'triggerTestAlert',
+                type: 'work'
+            });
+        } catch (error) {
+            console.error('Error testing alerts:', error);
+        }
+        
+        setTimeout(() => {
+            this.testAllAlertsBtn.classList.remove('test-alert-active');
+        }, 1000);
+    }
+    
+    async resetAlertSettings() {
+        if (confirm('¿Estás seguro de que quieres restaurar la configuración de alertas a los valores predeterminados?')) {
+            const defaultSettings = {
+                systemNotifications: true,
+                sounds: true,
+                browserAlert: false,
+                iconFlashing: true,
+                sidebarAutoOpen: true,
+                vibration: true,
+                soundFile: 'default',
+                alertIntensity: 'medium',
+                flashDuration: 5000,
+                repeatNotifications: false,
+                notificationPersistence: 8000
+            };
+            
+            for (const [setting, value] of Object.entries(defaultSettings)) {
+                await this.updateAlertSetting(setting, value);
+            }
+            
+            this.applyAlertSettings(defaultSettings);
+        }
+    }
+    
+    showProminentAlert(type, sessionData) {
+        const isBreak = type === 'break';
+        
+        this.alertTitle.textContent = isBreak ? 
+            '☕ ¡Descanso terminado!' : 
+            '🎉 ¡Sesión de trabajo completada!';
+            
+        this.alertDescription.textContent = isBreak ?
+            'Tu descanso ha terminado. ¿Listo para trabajar?' :
+            `Completaste ${sessionData.duration || 25} minutos de trabajo en "${sessionData.project || 'tu proyecto'}". ¡Excelente trabajo!`;
+        
+        this.prominentAlert.classList.remove('hidden');
+        
+        // Auto-cerrar después de 10 segundos si no se interactúa
+        setTimeout(() => {
+            if (!this.prominentAlert.classList.contains('hidden')) {
+                this.dismissProminentAlert();
+            }
+        }, 10000);
+    }
+    
+    dismissProminentAlert() {
+        this.prominentAlert.classList.add('hidden');
+    }
+    
+    setupEventDelegation() {
+        // Event delegation para botones dinámicos
         document.addEventListener('click', (e) => {
             // Botón editar sesión
             if (e.target.classList.contains('session-edit-btn')) {
@@ -149,6 +385,13 @@ class PomodoroUI {
                     break;
                 case 'openHistory':
                     this.showHistory();
+                    break;
+                // Nuevos casos para alertas
+                case 'showProminentAlert':
+                    this.showProminentAlert(message.type, message.data);
+                    break;
+                case 'showBrowserAlert':
+                    alert(message.message);
                     break;
             }
         });
